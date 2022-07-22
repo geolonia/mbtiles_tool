@@ -94,7 +94,9 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
 
       let input_conn = sqlite::open(output_thread_input).unwrap();
       let mut input_conn_stmt = input_conn
-        .prepare("SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?")
+        .prepare(
+          "SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?",
+        )
         .unwrap();
 
       let connection = sqlite::open(output_thread_path).unwrap();
@@ -160,11 +162,14 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
           insert_stmt.reset().unwrap();
 
           if tile_count % 100_000 == 0 {
-            connection.execute("END TRANSACTION; BEGIN TRANSACTION;").unwrap();
+            connection
+              .execute("END TRANSACTION; BEGIN TRANSACTION;")
+              .unwrap();
 
             let ts = time::Instant::now();
             let elapsed = ts.duration_since(last_ts);
-            println!("[{}] {} tiles in {}ms ({:.4}ms/tile)",
+            println!(
+              "[{}] {} tiles in {}ms ({:.4}ms/tile)",
               output_config_name,
               tile_count,
               elapsed.as_millis(),
