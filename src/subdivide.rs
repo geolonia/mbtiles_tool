@@ -141,11 +141,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
           insert_stmt.reset().unwrap();
 
           if tile_count % 100_000 == 0 {
-            println!(
-              "[{}] {} tiles",
-              output_config_name,
-              tile_count,
-            );
+            println!("[{}] {} tiles", output_config_name, tile_count,);
           }
         }
       }
