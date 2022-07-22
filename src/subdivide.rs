@@ -139,6 +139,14 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
           insert_stmt.bind(4, &*work.data).unwrap();
           insert_stmt.next().unwrap();
           insert_stmt.reset().unwrap();
+
+          if tile_count % 100_000 == 0 {
+            println!(
+              "[{}] {} tiles",
+              output_config_name,
+              tile_count,
+            );
+          }
         }
       }
 
@@ -209,7 +217,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
 
     let this_tile = (tile_column, flipped_row, zoom_level);
     for (tile, i) in &tile_to_output_idx_map {
-      if tile_is_ancestor(&this_tile, &tile) {
+      if tile_is_ancestor(&this_tile, tile) {
         output_queue_txs[*i]
           .send(WorkJob {
             tile: (tile_column, tile_row, zoom_level),
