@@ -1,19 +1,10 @@
-use crossbeam_utils::atomic::AtomicCell;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time;
-use std::time::Duration;
 
 use crate::tilebelt::{tile_is_ancestor, Tile};
-
-// because recv() will block indefinitely, we set a timeout on recv.
-// flags are used to signal whether the input / output has finished,
-// so this timeout is only required because without it, the signal
-// won't be refreshed
-const QUEUE_RECV_TIMEOUT_MS: u64 = 100;
 
 struct WorkJob {
   tile: Tile,
@@ -28,6 +19,7 @@ struct MetadataRow {
 struct SubdivideOutput {
   name: String,
   tiles: Vec<Tile>,
+  maxzoom: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,28 +52,27 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
   }
   let metadata_rows_ref = Arc::new(metadata_rows);
 
-  let input_done: Arc<AtomicCell<bool>> = Arc::new(AtomicCell::new(false));
-
   let mut output_queue_txs: Vec<crossbeam_channel::Sender<WorkJob>> = Vec::new();
   let mut output_queue_rxs: Vec<crossbeam_channel::Receiver<WorkJob>> = Vec::new();
-  let mut tile_to_output_idx_map: HashMap<Tile, usize> = HashMap::new();
+  let mut tile_to_output_idx_map: Vec<(Tile, u32, usize)> = Vec::new();
   let mut output_threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
   for (i, output_config) in config.outputs.iter().enumerate() {
     let (output_queue_tx, output_queue_rx) = crossbeam_channel::bounded::<WorkJob>(100_000);
     let output_thread_queue_rx = output_queue_rx.clone();
 
+    let config_maxzoom = output_config.maxzoom.unwrap_or(999);
+
     output_queue_txs.push(output_queue_tx);
     output_queue_rxs.push(output_queue_rx);
 
     for tile in &output_config.tiles {
-      tile_to_output_idx_map.insert(*tile, i);
+      tile_to_output_idx_map.push((*tile, config_maxzoom, i));
     }
 
     let output_thread_input = input.clone();
     let output_thread_metadata_rows = Arc::clone(&metadata_rows_ref);
     let output_config_name = output_config.name.clone();
-    let output_thread_input_done = Arc::clone(&input_done);
     let output_thread_path = output.join(format!("{}.mbtiles", output_config_name));
     println!(
       "Spawning thread for output {} to {}",
@@ -137,9 +128,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
 
       let mut max_zoom = 0;
       let mut min_zoom = 999;
-      while !output_thread_input_done.load() {
-        if let Ok(work) =
-          output_thread_queue_rx.recv_timeout(Duration::from_millis(QUEUE_RECV_TIMEOUT_MS))
+      while let Ok(work) = output_thread_queue_rx.recv() {
         {
           tile_count += 1;
 
@@ -246,7 +235,12 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
     let flipped_row = (1 << zoom_level) - 1 - tile_row;
 
     let this_tile = (tile_column, flipped_row, zoom_level);
-    for (tile, i) in &tile_to_output_idx_map {
+
+    for (tile, maxzoom, i) in &tile_to_output_idx_map {
+      if zoom_level > *maxzoom {
+        continue;
+      }
+
       if tile_is_ancestor(&this_tile, tile) {
         output_queue_txs[*i]
           .send(WorkJob {
@@ -258,7 +252,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
     }
   }
   println!("Finished reading input from mbtiles.");
-  input_done.store(true);
+  drop(output_queue_txs);
 
   for output_thread in output_threads {
     output_thread.join().unwrap();

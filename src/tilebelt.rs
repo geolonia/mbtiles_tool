@@ -13,3 +13,19 @@ pub fn tile_is_ancestor(tile: &Tile, ancestor: &Tile) -> bool {
 
   tile_at_anc_z.0 == ancestor.0 && tile_at_anc_z.1 == ancestor.1
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_tile_is_ancestor() {
+    assert!(tile_is_ancestor(&(0, 0, 0), &(0, 0, 0)));
+    assert!(tile_is_ancestor(&(1, 1, 1), &(0, 0, 0)));
+    assert!(tile_is_ancestor(&(3, 3, 2), &(0, 0, 0)));
+    assert!(tile_is_ancestor(&(3, 3, 3), &(0, 0, 0)));
+
+    assert!(tile_is_ancestor(&(9, 7, 4), &(4, 3, 3)));
+    assert!(!tile_is_ancestor(&(0, 7, 4), &(4, 3, 3)));
+  }
+}

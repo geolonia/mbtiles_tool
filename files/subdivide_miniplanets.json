@@ -1,6 +1,13 @@
 {
   "outputs": [
     {
+      "name": "geol_mp_root",
+      "tiles": [
+        [ 0, 0, 0 ]
+      ],
+      "maxzoom": 6
+    },
+    {
       "name": "geol_mp_00",
       "tiles": [
         [ 4, 3, 3 ],
