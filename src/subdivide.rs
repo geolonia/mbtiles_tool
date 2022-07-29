@@ -91,6 +91,7 @@ fn split_tile_extent_recursive(e: InputTileZoomExtent) -> Vec<InputTileZoomExten
 
 struct WorkJob {
   tile: Tile,
+  data: Arc<Vec<u8>>,
 }
 
 struct MetadataRow {
@@ -153,7 +154,6 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
       tile_to_output_idx_map.push((*tile, config_maxzoom, i));
     }
 
-    let output_thread_input = input.clone();
     let output_thread_metadata_rows = Arc::clone(&metadata_rows_ref);
     let output_config_name = output_config.name.clone();
     let output_thread_path = output.join(format!("{}.mbtiles", output_config_name));
@@ -165,13 +165,6 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
     let output_thread_handle = thread::spawn(move || {
       let mut last_ts = time::Instant::now();
       let mut tile_count = 0;
-
-      let input_conn = sqlite::open(output_thread_input).unwrap();
-      let mut input_conn_stmt = input_conn
-        .prepare(
-          "SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?",
-        )
-        .unwrap();
 
       let connection = sqlite::open(output_thread_path).unwrap();
       connection
@@ -215,20 +208,13 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
         {
           tile_count += 1;
 
-          input_conn_stmt.bind(1, work.tile.2 as i64).unwrap();
-          input_conn_stmt.bind(2, work.tile.0 as i64).unwrap();
-          input_conn_stmt.bind(3, work.tile.1 as i64).unwrap();
-          input_conn_stmt.next().unwrap();
-          let data = input_conn_stmt.read::<Vec<u8>>(0).unwrap();
-          input_conn_stmt.reset().unwrap();
-
           max_zoom = std::cmp::max(max_zoom, work.tile.2);
           min_zoom = std::cmp::min(min_zoom, work.tile.2);
 
           insert_stmt.bind(1, work.tile.2 as i64).unwrap();
           insert_stmt.bind(2, work.tile.0 as i64).unwrap();
           insert_stmt.bind(3, work.tile.1 as i64).unwrap();
-          insert_stmt.bind(4, &*data).unwrap();
+          insert_stmt.bind(4, &**work.data).unwrap();
 
           insert_stmt.next().unwrap();
           insert_stmt.reset().unwrap();
@@ -367,7 +353,8 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
         SELECT
           zoom_level,
           tile_column,
-          tile_row
+          tile_row,
+          tile_data
         FROM
           tiles
         WHERE
@@ -396,6 +383,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
           let zoom_level = statement.read::<i64>(0).unwrap() as u32;
           let tile_column = statement.read::<i64>(1).unwrap() as u32;
           let tile_row = statement.read::<i64>(2).unwrap() as u32;
+          let tile_data = Arc::new(statement.read::<Vec<u8>>(3).unwrap());
 
           // flipped = (1 << row[0]) - 1 - row[2]
           let flipped_row = (1 << zoom_level) - 1 - tile_row;
@@ -412,6 +400,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
               output_queue_txs[*i]
                 .send(WorkJob {
                   tile: (tile_column, tile_row, zoom_level),
+                  data: tile_data.clone(),
                 })
                 .unwrap();
               // don't break here so we can support overlapping outputs
