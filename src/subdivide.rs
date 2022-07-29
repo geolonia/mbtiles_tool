@@ -6,7 +6,6 @@ use std::time;
 
 use crate::tilebelt::{tile_is_ancestor, Tile};
 
-
 const EXTENT_CHUNK_TILE_COUNT: u64 = u64::pow(2, 15);
 
 #[derive(Debug, Clone, Copy)]
