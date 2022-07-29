@@ -222,7 +222,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
           insert_stmt.next().unwrap();
           insert_stmt.reset().unwrap();
 
-          if tile_count % 100_000 == 0 {
+          if tile_count % EXTENT_CHUNK_TILE_COUNT == 0 {
             connection
               .execute("END TRANSACTION; BEGIN TRANSACTION;")
               .unwrap();
@@ -234,7 +234,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
               output_config_name,
               tile_count,
               elapsed.as_millis(),
-              elapsed.as_millis() as f64 / 100_000_f64,
+              elapsed.as_millis() as f64 / (EXTENT_CHUNK_TILE_COUNT as f64),
             );
             last_ts = ts;
           }
