@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time;
 
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 use crate::tilebelt::{tile_is_ancestor, Tile};
 
@@ -372,12 +372,15 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
 
       let extent_n = worker_id + 1;
 
-      let mut our_extents: Vec<&InputTileZoomExtent> = thread_extents.iter().skip(extent_n - 1).step_by(max_workers).collect();
+      let mut our_extents: Vec<&InputTileZoomExtent> = thread_extents
+        .iter()
+        .skip(extent_n - 1)
+        .step_by(max_workers)
+        .collect();
       // shuffle our_extents to evenly distribute workload
       our_extents.shuffle(&mut thread_rng());
 
-      for extent in our_extents
-      {
+      for extent in our_extents {
         statement.bind(1, extent.zoom as i64).unwrap();
         statement.bind(2, extent.min_x as i64).unwrap();
         statement.bind(3, extent.max_x as i64).unwrap();
