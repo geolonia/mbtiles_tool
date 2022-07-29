@@ -4,6 +4,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time;
 
+use rand::thread_rng;
+use rand::seq::SliceRandom;
+
 use crate::tilebelt::{tile_is_ancestor, Tile};
 
 const EXTENT_CHUNK_TILE_COUNT: u64 = u64::pow(2, 15);
@@ -333,7 +336,7 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
   let shared_tile_to_output_idx_map = Arc::new(tile_to_output_idx_map);
 
   // worker threads
-  let max_workers = std::cmp::max(num_cpus::get() / 2, 2);
+  let max_workers = std::cmp::max(num_cpus::get() - 2, 2);
   println!("Spawning {} input workers.", max_workers);
 
   let mut input_thread_handles = Vec::new();
@@ -368,10 +371,12 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
         .unwrap();
 
       let extent_n = worker_id + 1;
-      for extent in thread_extents
-        .iter()
-        .skip(extent_n - 1)
-        .step_by(max_workers)
+
+      let mut our_extents: Vec<&InputTileZoomExtent> = thread_extents.iter().skip(extent_n - 1).step_by(max_workers).collect();
+      // shuffle our_extents to evenly distribute workload
+      our_extents.shuffle(&mut thread_rng());
+
+      for extent in our_extents
       {
         statement.bind(1, extent.zoom as i64).unwrap();
         statement.bind(2, extent.min_x as i64).unwrap();
