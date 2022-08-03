@@ -1,5 +1,12 @@
+use std::sync::Arc;
+
 // in order of: x, y, z
 pub type Tile = (u32, u32, u32);
+
+pub struct TileData {
+  pub tile: Tile,
+  pub data: Arc<Vec<u8>>,
+}
 
 pub fn tile_is_ancestor(tile: &Tile, ancestor: &Tile) -> bool {
   if tile.2 < ancestor.2 {

@@ -1,3 +1,4 @@
+mod reader;
 mod subdivide;
 mod tilebelt;
 
