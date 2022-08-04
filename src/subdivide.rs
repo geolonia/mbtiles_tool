@@ -35,18 +35,8 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
   let config: SubdivideConfig =
     serde_json::from_reader(std::fs::File::open(&config_path).unwrap()).unwrap();
 
-  let connection = sqlite::open(&input).unwrap();
-  connection.execute("PRAGMA query_only = true;").unwrap();
-
-  let mut metadata_rows: Vec<MetadataRow> = Vec::new();
-  let mut metadata_read_statement = connection
-    .prepare("SELECT name, value FROM metadata")
-    .unwrap();
-  while let sqlite::State::Row = metadata_read_statement.next().unwrap() {
-    let name = metadata_read_statement.read::<String>(0).unwrap();
-    let value = metadata_read_statement.read::<String>(1).unwrap();
-    metadata_rows.push(MetadataRow { name, value });
-  }
+  let mut reader = Reader::new(input);
+  let metadata_rows = reader.read_metadata();
   let metadata_rows_ref = Arc::new(metadata_rows);
 
   let mut output_queue_txs: Vec<crossbeam_channel::Sender<TileData>> = Vec::new();
@@ -160,9 +150,9 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
       ",
         )
         .unwrap();
-      for row in output_thread_metadata_rows.iter() {
-        insert_metadata_stmt.bind(1, &*row.name).unwrap();
-        insert_metadata_stmt.bind(2, &*row.value).unwrap();
+      for (name, value) in output_thread_metadata_rows.iter() {
+        insert_metadata_stmt.bind(1, &**name).unwrap();
+        insert_metadata_stmt.bind(2, &**value).unwrap();
         insert_metadata_stmt.next().unwrap();
         insert_metadata_stmt.reset().unwrap();
       }
@@ -194,7 +184,6 @@ pub fn subdivide(config_path: PathBuf, input: PathBuf, output: PathBuf) {
     output_threads.push(output_thread_handle);
   }
 
-  let mut reader = Reader::new(input);
   for input_tile in reader.iter() {
     let tile_column = input_tile.tile.0;
     let tile_row = input_tile.tile.1;

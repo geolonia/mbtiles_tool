@@ -1,4 +1,5 @@
 use crate::tilebelt::TileData;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -216,6 +217,7 @@ fn initialize_threads(
 }
 
 pub struct Reader {
+  input: PathBuf,
   output_rx: crossbeam_channel::Receiver<TileData>,
 }
 
@@ -223,11 +225,26 @@ impl Reader {
   pub fn new(input: PathBuf) -> Reader {
     let (output_tx, output_rx) = crossbeam_channel::unbounded();
     let extents = initialize_extents(input.clone());
-    initialize_threads(extents, input, output_tx);
-    Reader { output_rx }
+    initialize_threads(extents, input.clone(), output_tx);
+    Reader { input, output_rx }
   }
 
   pub fn iter(&mut self) -> crossbeam_channel::Iter<TileData> {
     self.output_rx.iter()
+  }
+
+  pub fn read_metadata(&mut self) -> HashMap<String, String> {
+    let connection = sqlite::open(&self.input).unwrap();
+    connection.execute("PRAGMA query_only = true;").unwrap();
+    let mut metadata_stmt = connection
+      .prepare("SELECT name, value FROM metadata;")
+      .unwrap();
+    let mut metadata = HashMap::<String, String>::new();
+    while let sqlite::State::Row = metadata_stmt.next().unwrap() {
+      let name = metadata_stmt.read::<String>(0).unwrap();
+      let value = metadata_stmt.read::<String>(1).unwrap();
+      metadata.insert(name, value);
+    }
+    metadata
   }
 }
