@@ -28,6 +28,17 @@ jobs:
         default: true
         profile: minimal # minimal component installation (ie, no documentation)
         components: clippy, rustfmt
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Ensure `cargo fmt` has been run
       uses: actions-rs/cargo@v1
       with:
@@ -92,6 +103,16 @@ jobs:
         rustup default
         cargo -V
         rustc -V
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ matrix.job.target }}-${{ matrix.job.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build
       uses: actions-rs/cargo@v1
