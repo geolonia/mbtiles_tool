@@ -119,7 +119,7 @@ jobs:
       with:
         use-cross: ${{ matrix.job.use-cross }}
         command: build
-        args: --features="binary" --locked --release --target=${{ matrix.job.target }}
+        args: --locked --release --target=${{ matrix.job.target }}
 
     - name: Strip debug information from executable
       id: strip
