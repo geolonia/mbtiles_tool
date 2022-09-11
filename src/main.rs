@@ -2,6 +2,7 @@ mod geom;
 mod lineclip;
 mod overzoom;
 mod reader;
+mod statistics;
 mod subdivide;
 mod tilebelt;
 mod vector_tile_ops;
@@ -57,6 +58,13 @@ enum Commands {
 
     #[clap(short, long, value_parser, help = "the target zoom level")]
     target_zoom: u8,
+  },
+
+  #[clap(name = "statistics", about = "Show statistics about a mbtiles archive")]
+  Statistics {
+    /// Input
+    #[clap(value_parser)]
+    input: PathBuf,
   },
   // #[clap(
   //   name = "serve",
@@ -126,6 +134,15 @@ fn main() {
       }
 
       overzoom::overzoom(input, output, target_zoom);
+    }
+    Commands::Statistics { input } => {
+      // fail if input file does not exist
+      if !input.exists() {
+        panic!("Input file does not exist");
+      }
+
+      let stats = statistics::calculate_statistics(input);
+      stats.print_cli_table();
     }
   }
 }
