@@ -1,3 +1,4 @@
+mod converter;
 mod geom;
 mod lineclip;
 mod overzoom;
@@ -6,6 +7,7 @@ mod statistics;
 mod subdivide;
 mod tilebelt;
 mod vector_tile_ops;
+mod writer;
 
 use clap::{Parser, Subcommand};
 use std::io;
@@ -65,6 +67,22 @@ enum Commands {
     /// Input
     #[clap(value_parser)]
     input: PathBuf,
+  },
+
+  // Convert a directory of tiles to an mbtiles archive
+  // Similar to `mb-util <directory> <mbtiles>`
+  #[clap(
+    name = "convert",
+    about = "Convert a directory of tiles to an mbtiles archive"
+  )]
+  Convert {
+    /// Input
+    #[clap(value_parser)]
+    input: PathBuf,
+
+    /// Output
+    #[clap(value_parser)]
+    output: PathBuf,
   },
   // #[clap(
   //   name = "serve",
@@ -143,6 +161,27 @@ fn main() {
 
       let stats = statistics::calculate_statistics(input);
       stats.print_cli_table();
+    }
+    Commands::Convert { input, output } => {
+      // fail if input directory does not exist
+      if !input.exists() {
+        panic!("Input directory does not exist");
+      }
+
+      // ask if we should overwrite the output file
+      if output.exists() {
+        print!("Output file already exists. Overwrite? (y/n) ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        if input.trim() != "y" {
+          panic!("Aborted");
+        }
+        // remove the output file
+        std::fs::remove_file(&output).unwrap();
+      }
+
+      converter::convert(input, output);
     }
   }
 }

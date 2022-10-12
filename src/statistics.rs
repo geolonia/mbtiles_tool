@@ -87,7 +87,7 @@ fn calculate_large_tile_stats(
 }
 
 pub fn calculate_statistics(input: PathBuf) -> StatisticsOutput {
-  let connection = sqlite::open(input.to_owned()).unwrap();
+  let connection = sqlite::open(&input).unwrap();
   connection.execute("PRAGMA query_only = true;").unwrap();
 
   let zoom_level_stats = calculate_zoom_level_stats(&connection);
